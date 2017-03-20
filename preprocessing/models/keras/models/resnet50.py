@@ -1,34 +1,12 @@
-#-*- coding: utf-8 -*-
-'''ResNet50 model for Keras.
-
-# Reference:
-
-- [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)
-
-Adapted from code contributed by BigMoyan.
-'''
-from __future__ import print_function
-
-import numpy as np
-import warnings
-
 from keras.layers import merge, Input
 from keras.layers import Dense, Activation, Flatten
-from keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D
-from keras.layers import BatchNormalization
+from keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D, BatchNormalization
+from keras.layers import Activation, Flatten, Dense
+
 from keras.models import Model
-from keras.preprocessing import image
 import keras.backend as K
-from keras.utils.layer_utils import convert_all_kernels_in_model
-from keras.utils.data_utils import get_file
-from imagenet_utils import decode_predictions, preprocess_input
 
-
-TH_WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_th_dim_ordering_th_kernels.h5'
-TF_WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels.h5'
-TH_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_th_dim_ordering_th_kernels_notop.h5'
-TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
-
+import os, sys
 
 def identity_block(input_tensor, kernel_size, filters, stage, block):
     '''The identity_block is the block that has no conv layer at shortcut
@@ -108,7 +86,7 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2))
     return x
 
 
-def ResNet50(include_top=True, weights='imagenet',
+def ResNet50(include_top=True, weights_path=None,
              input_tensor=None):
     '''Instantiate the ResNet50 architecture,
     optionally loading weights pre-trained
@@ -133,21 +111,9 @@ def ResNet50(include_top=True, weights='imagenet',
     # Returns
         A Keras model instance.
     '''
-    if weights not in {'imagenet', None}:
-        raise ValueError('The `weights` argument should be either '
-                         '`None` (random initialization) or `imagenet` '
-                         '(pre-training on ImageNet).')
+
     # Determine proper input shape
-    if K.image_dim_ordering() == 'th':
-        if include_top:
-            input_shape = (3, 224, 224)
-        else:
-            input_shape = (3, None, None)
-    else:
-        if include_top:
-            input_shape = (224, 224, 3)
-        else:
-            input_shape = (None, None, 3)
+    input_shape = (256, 256, 3)
 
     if input_tensor is None:
         img_input = Input(shape=input_shape)
@@ -189,63 +155,13 @@ def ResNet50(include_top=True, weights='imagenet',
 
     x = AveragePooling2D((7, 7), name='avg_pool')(x)
 
-    if include_top:
-        x = Flatten()(x)
-        x = Dense(1000, activation='softmax', name='fc1000')(x)
+    x = Flatten()(x)
+    x = Dense(9, activation='softmax', name='fc9')(x)
 
     model = Model(img_input, x)
 
     # load weights
-    if weights == 'imagenet':
-        print('K.image_dim_ordering:', K.image_dim_ordering())
-        if K.image_dim_ordering() == 'th':
-            if include_top:
-                weights_path = get_file('resnet50_weights_th_dim_ordering_th_kernels.h5',
-                                        TH_WEIGHTS_PATH,
-                                        cache_subdir='models',
-                                        md5_hash='1c1f8f5b0c8ee28fe9d950625a230e1c')
-            else:
-                weights_path = get_file('resnet50_weights_th_dim_ordering_th_kernels_notop.h5',
-                                        TH_WEIGHTS_PATH_NO_TOP,
-                                        cache_subdir='models',
-                                        md5_hash='f64f049c92468c9affcd44b0976cdafe')
-            model.load_weights(weights_path)
-            if K.backend() == 'tensorflow':
-                warnings.warn('You are using the TensorFlow backend, yet you '
-                              'are using the Theano '
-                              'image dimension ordering convention '
-                              '(`image_dim_ordering="th"`). '
-                              'For best performance, set '
-                              '`image_dim_ordering="tf"` in '
-                              'your Keras config '
-                              'at ~/.keras/keras.json.')
-                convert_all_kernels_in_model(model)
-        else:
-            if include_top:
-                weights_path = get_file('resnet50_weights_tf_dim_ordering_tf_kernels.h5',
-                                        TF_WEIGHTS_PATH,
-                                        cache_subdir='models',
-                                        md5_hash='a7b3fe01876f51b976af0dea6bc144eb')
-            else:
-                weights_path = get_file('resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5',
-                                        TF_WEIGHTS_PATH_NO_TOP,
-                                        cache_subdir='models',
-                                        md5_hash='a268eb855778b3df3c7506639542a6af')
-            model.load_weights(weights_path)
-            if K.backend() == 'theano':
-                convert_all_kernels_in_model(model)
+    if weights_path is not None:
+        model.load_weights(weights_path)
+
     return model
-
-
-if __name__ == '__main__':
-    model = ResNet50(include_top=True, weights='imagenet')
-
-    img_path = 'elephant.jpg'
-    img = image.load_img(img_path, target_size=(224, 224))
-    x = image.img_to_array(img)
-    x = np.expand_dims(x, axis=0)
-    x = preprocess_input(x)
-    print('Input image shape:', x.shape)
-
-    preds = model.predict(x)
-    print('Predicted:', decode_predictions(preds))
