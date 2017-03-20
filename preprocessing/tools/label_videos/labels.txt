@@ -1,0 +1,3 @@
+shoot
+goal
+corner
