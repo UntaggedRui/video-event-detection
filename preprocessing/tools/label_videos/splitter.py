@@ -10,8 +10,13 @@ import time
 import shutil
 import subprocess
 
-sys.path.append('../../caffe/python')
-import caffe
+model_path = os.path.join('..','..','models','keras','models')
+sys.path.append(model_path)
+
+from resnet50 import ResNet50
+from imagenet_utils import preprocess_input
+from keras.models import Model
+from keras.preprocessing import image as keras_image
 
 class MainWindow(QWidget):
     def __init__(self, parent=None):
@@ -230,44 +235,8 @@ class GenerateShotsThread(QThread):
 
         # generate shots
         # model settings
-        model_root = '../../models/'
-        opt = {
-            "debug": False,
-            "caffeMode": "gpu",
-            "batchSize": 1,
-            "inputSize": 227,
-            "net": "alexNetPlaces",
-            "layer": "single",  # multi, single
-            "dataset": "MITIndoor67"
-        }
-        caffe.set_device(0)
-        caffe.set_mode_gpu()
-
-        if opt["net"] == "googleNet":
-            model_def = model_root + 'deploy_googlenet.prototxt'
-            model_weights = model_root + 'imagenet_googlelet_train_iter_120000.caffemodel'
-        elif opt["net"] == "alexNetPlaces":
-            model_def = model_root + 'alexnet_places/places205CNN_deploy.prototxt'
-            model_weights = model_root + 'alexnet_places/places205CNN_iter_300000.caffemodel'
-            layer_names = ["fc7"]
-        else:
-            print "[Error]no model exist."
-            exit()
-
-        # net initialization
-        net = caffe.Net(model_def,  # 定义模型结构
-                        model_weights,  # 预训练的网络
-                        caffe.TEST)  # 测试模式
-
-        net.blobs['data'].reshape(opt["batchSize"],  # batch size
-                                  3,  # BGR
-                                  opt["inputSize"], opt["inputSize"])  # image size
-
-        transformer = caffe.io.Transformer({'data': net.blobs['data'].data.shape})
-
-        transformer.set_transpose('data', (2, 0, 1))  # 变换image矩阵，把channel放到最后一维
-        transformer.set_raw_scale('data', 255)  # 从[0,1]rescale到[0,255]
-        transformer.set_channel_swap('data', (2, 1, 0))  # 调整 channels from RGB to BGR
+        base_model = ResNet50()
+        model = Model(input=base_model.input, output=base_model.get_layer('avg_pool').output)
 
         image_files = os.listdir(self.frame_path)
         image_files.sort()
@@ -277,7 +246,7 @@ class GenerateShotsThread(QThread):
         min_count = 20
 
         video_index = 1
-        euclidean_threshold = 7
+        euclidean_threshold = 0.8
         feature_last = []
 
         if os.path.exists(self.shot_path) == True:
@@ -285,11 +254,14 @@ class GenerateShotsThread(QThread):
         os.mkdir(self.shot_path)
 
         for image_name in image_files:
-            image = caffe.io.load_image(self.frame_path + image_name)  # 读入图片
-            transformed_image = transformer.preprocess('data', image)
-            net.blobs['data'].data[...] = transformed_image
-            output = net.forward()  # 这里output是CNN最后一层的输出向量
-            feature = net.blobs['fc7'].data[0]  # 读取fc7层的特征
+            img_path = self.frame_path + image_name
+            img = keras_image.load_img(img_path, target_size=(256, 256))
+            x = keras_image.img_to_array(img)
+            x = np.expand_dims(x, axis=0)
+            x = preprocess_input(x)
+
+            feature = model.predict(x)
+            feature = feature.flatten()
             feature_standarlized = (feature - min(feature)) / (max(feature) - min(feature))  # 归一化
 
             width = int(self.thread_playcapture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
@@ -297,6 +269,7 @@ class GenerateShotsThread(QThread):
             if image_count > 0:
                 dist = np.sqrt(np.sum(np.square(feature_standarlized - feature_last)))  # Euclidean
                 # dist = np.sum(np.abs(feature_standarlized - feature_last)) #Manhatten
+                #print dist,image_name
                 if (dist >= euclidean_threshold) and image_count > min_count:
                     fps = self.thread_playcapture.get(cv2.cv.CV_CAP_PROP_FPS)
                     size = (width, height)
