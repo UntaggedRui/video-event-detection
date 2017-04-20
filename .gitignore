@@ -1,0 +1,9 @@
+.idea/
+*.pyc
+Dataset_256.rar
+Dataset_256
+miles-deep/
+five-video-*/
+Experiment/
+JHH/
+preprocessing/dataset

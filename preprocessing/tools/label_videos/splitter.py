@@ -14,6 +14,7 @@ model_path = os.path.join('..','..','models','keras','models')
 sys.path.append(model_path)
 
 from resnet50 import ResNet50
+from lenet import LeNet
 from imagenet_utils import preprocess_input
 from keras.models import Model
 from keras.preprocessing import image as keras_image
@@ -199,7 +200,7 @@ class Timer(QThread):
 class GenerateShotsThread(QThread):
     def __init__(self, parent = None):
         QThread.__init__(self, parent)
-        self.frame_path = '_frames/'
+        self.frame_path = '/home/liutingxi/_frames/'
         self.shot_path = ''
         self.thread_playcapture = None
         self.start_frame = 0
@@ -235,7 +236,8 @@ class GenerateShotsThread(QThread):
 
         # generate shots
         # model settings
-        base_model = ResNet50()
+        weights_path = os.path.join('..', 'models', 'keras', 'weights', 'weights_resnet.h5')
+        base_model = ResNet50(weights_path)
         model = Model(input=base_model.input, output=base_model.get_layer('avg_pool').output)
 
         image_files = os.listdir(self.frame_path)
@@ -269,7 +271,7 @@ class GenerateShotsThread(QThread):
             if image_count > 0:
                 dist = np.sqrt(np.sum(np.square(feature_standarlized - feature_last)))  # Euclidean
                 # dist = np.sum(np.abs(feature_standarlized - feature_last)) #Manhatten
-                #print dist,image_name
+                print dist,image_name
                 if (dist >= euclidean_threshold) and image_count > min_count:
                     fps = self.thread_playcapture.get(cv2.cv.CV_CAP_PROP_FPS)
                     size = (width, height)
