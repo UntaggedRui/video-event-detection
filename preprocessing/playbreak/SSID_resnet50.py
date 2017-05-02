@@ -1,10 +1,9 @@
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
-import warnings
+
 
 from keras.models import Model
-from keras.preprocessing import image
-import keras.backend as K
+from keras.preprocessing import image as keras_image
 import os,sys
 
 model_path = os.path.join('..','models','keras','models')
@@ -12,8 +11,9 @@ sys.path.append(model_path)
 
 import resnet50
 
-weights_path = os.path.join('..', 'models', 'keras', 'weights', 'weights_resnet.h5')
-model = resnet50.ResNet50(weights_path = weights_path)
+weights_path = 'resnet50_weights.h5'
+weights_path = os.path.abspath(weights_path)
+model = resnet50.ResNet50(weights_path=weights_path)
 
 model.compile(loss='categorical_crossentropy',
               optimizer='rmsprop',
@@ -39,7 +39,7 @@ ssid_root = os.path.join('..','dataset','SSID_Dataset')
 train_path = os.path.join(ssid_root,'train')
 train_generator = train_datagen.flow_from_directory(
         train_path,  # this is the target directory
-        target_size=(256, 256),  # all images will be resized to 256x256
+        target_size=(224, 224),  # all images will be resized to 256x256
         batch_size=32,
         class_mode='categorical')
 
@@ -47,17 +47,33 @@ train_generator = train_datagen.flow_from_directory(
 val_path = os.path.join(ssid_root,'validation')
 validation_generator = test_datagen.flow_from_directory(
         val_path,
-        target_size=(256, 256),
+        target_size=(224, 224),
         batch_size=32,
         class_mode='categorical')
 
 model.fit_generator(
         train_generator,
         samples_per_epoch=2000,
-        nb_epoch=200,
+        nb_epoch=10,
         validation_data=validation_generator,
         nb_val_samples=800)
+
 model.save_weights(weights_path)  # always save your weights after training or during training
 
+files = os.listdir('test-image')
+
+index = 0
+
+feature_model = Model(input=model.input, output=model.get_layer('avg_pool').output)
+for file in files:
+    img = keras_image.load_img('test-image/' + file, target_size=(224, 224))
+    x = keras_image.img_to_array(img, dim_ordering='tf')
+    x = np.expand_dims(x, axis=0)
+
+    #x = preprocess_input(x)
+    result = feature_model.predict(x)
+    #result = np.argmax(result)
+    print result, index/3+1
+    index += 1
 
 
