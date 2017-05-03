@@ -113,7 +113,7 @@ def ResNet50(include_top=True, weights_path=None,
     '''
 
     # Determine proper input shape
-    input_shape = (256, 256, 3)
+    input_shape = (224, 224, 3)
 
     if input_tensor is None:
         img_input = Input(shape=input_shape)
@@ -161,7 +161,11 @@ def ResNet50(include_top=True, weights_path=None,
     model = Model(img_input, x)
 
     # load weights
-    if weights_path is not None:
-        model.load_weights(weights_path)
+    if weights_path != None and os.path.exists(weights_path):
+        print 'Loading weights...'
+        print weights_path
+        model.load_weights(weights_path,by_name=True)
+    else:
+        print 'No weights file found.'
 
     return model

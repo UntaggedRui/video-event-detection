@@ -55,7 +55,7 @@ sgd = SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
 model.compile(loss='categorical_crossentropy', optimizer=sgd, class_mode='categorical',metrics=['accuracy'])
 
 print("Train...")
-model.fit(x_train, y_train, batch_size=batch_size,validation_data=(x_val, y_val), nb_epoch=300)
+model.fit(x_train, y_train, batch_size=batch_size,validation_data=(x_val, y_val), nb_epoch=150)
 score, acc = model.evaluate(x_val, y_val,
                             batch_size=batch_size)
 #json_string=model.to_json()
